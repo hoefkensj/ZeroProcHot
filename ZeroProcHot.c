@@ -12,7 +12,7 @@
 #include <efiapi.h>
 #include <efierr.h>
 
-static uint64_t val,nval
+uint64_t val,nval;
 
 void print_head(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut) {
     conOut->OutputString(conOut, L"\r\n###############################################################################");
@@ -43,7 +43,7 @@ void print_bits(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, uint64_t val) {
     }
 }
 
-void print_bintable(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, uint64_t val,uint64_t op,uint64_t nval,char opcode){
+void print_bintable(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, uint64_t val,uint64_t op,uint64_t nval,char* opcode){
     conOut->OutputString(conOut, L"\r\n0x1FC:  ");
     print_bits(conOut, val);
     conOut->OutputString(conOut, L"\r\n");
@@ -92,10 +92,11 @@ static uint64_t AsmWriteMsr64(uint32_t index, uint64_t val) {
 
 int getConfirmation(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, EFI_SYSTEM_TABLE *systemTable) {
     int result = 1;
-    UINTN index;
+    uint64_t index;
 
     conOut->OutputString(conOut, L"\r\n(Y/n) ");
     // Wait for user input, with 'Y' as default
+
     systemTable->BootServices->WaitForEvent(1, &systemTable->ConIn->WaitForKey, &index);
     EFI_INPUT_KEY key;
     systemTable->ConIn->ReadKeyStroke(systemTable->ConIn, &key);
@@ -107,29 +108,29 @@ int getConfirmation(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, EFI_SYSTEM_TABLE *syst
 
 void set_ProcHot(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, EFI_SYSTEM_TABLE *systemTable) {
     uint64_t val = AsmReadMsr64(0x1FC);
-    uint64_t nval;
-    int yesno;
     uint64_t setbitzero = 1;  
-    nval = val | setbitzero;
-    print_bintable(vaL,op,nval,'   OR:')
+    uint64_t nval = val | setbitzero;
+    int yesno;
+    char opcode = L"   OR:";
+    print_bintable(conOut,val,setbitzero,nval,opcode);
     yesno = getConfirmation(conOut, systemTable);
     if (yesno == 1) {
         AsmWriteMsr64(0x1FC, nval);
         conOut->OutputString(conOut, L"\r\nBD PROCHOT is now enabled!\r\n");
-
-
     } else {
         conOut->OutputString(conOut, L"\r\nOperation aborted by user!\r\n");
     }
 }
 
 void clear_ProcHot(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut,EFI_SYSTEM_TABLE *systemTable){
-    uint64_t val,nval;
-    UINTN index;
+    uint64_t val = AsmReadMsr64(0x1FC);
+    uint64_t zerobitzero =  18446744073709551614;
+    uint64_t nval = val & zerobitzero;
     int yesno;
-    uint64_t zerobitzero = 18446744073709551614;    
-    nval= val & zerobitzero;
-    print_bintable(vaL,op,nval,'  AND:')
+    char opcode = L"  AND:";
+    uint64_t index;
+
+    print_bintable(conOut, val,zerobitzero,nval,opcode);
 
     yesno=getConfirmation(conOut,systemTable);
     if (yesno == 1) {
@@ -138,6 +139,7 @@ void clear_ProcHot(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut,EFI_SYSTEM_TABLE *system
         val = AsmReadMsr64(0x1FC);
         print_bits(conOut, val);
         conOut->OutputString(conOut, L"\r\n");
+        EFI_INPUT_KEY key;
         systemTable->BootServices->WaitForEvent(1, &systemTable->ConIn->WaitForKey, &index); 
     //else if 'n' or 'N' skip this section
     }
@@ -150,7 +152,7 @@ void interactive(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut,EFI_SYSTEM_TABLE *systemTa
     }else{
         conOut->OutputString(conOut, L"\r\nBD_PROCHOT: 0");
     }
-    print_menu(conOut)
+    print_menu(conOut);
     EFI_INPUT_KEY key;
 ask: systemTable->ConIn->ReadKeyStroke(systemTable->ConIn, &key);
     if (key.UnicodeChar == '1')  {
@@ -158,7 +160,7 @@ ask: systemTable->ConIn->ReadKeyStroke(systemTable->ConIn, &key);
     }else if (key.UnicodeChar == '2'){
         set_ProcHot(conOut,systemTable);
     }else if (key.UnicodeChar == '0' ){
-        return
+        return;
     }else{
         goto ask;
     }
@@ -179,9 +181,9 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systemTable)
         conOut->OutputString(conOut, L".");
         EFI_INPUT_KEY key;
         systemTable->ConIn->ReadKeyStroke(systemTable->ConIn, &key);
-        if ((UINTN)Key.ScanCode == SCAN_ESC) {
+        if (key.ScanCode == SCAN_ESC) {
             print_head(conOut);
-            interactive(conOut);
+            interactive(conOut,systemTable);
             break;
         }
             
