@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Park Ju Hyung
+// Copyright (c) 2023 Hoefkens Jeroen
 #include <efibind.h>
 #include <efidef.h>
 #include <efidevp.h>
@@ -7,9 +7,15 @@
 #include <efiapi.h>
 #include <efierr.h>
 
+void print_head(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut){
+    conOut->OutputString(conOut,L"\r\n###############################################################################");
+    conOut->OutputString(conOut,L"\r\n##                              Zero BDProcHot                               ##");
+    conOut->OutputString(conOut,L"\r\n##---------------------------------------------------------------------------##");
+    conOut->OutputString(conOut,L"\r\n## (c)2023 HoefkensJ                        https://www.github.com/hoefkensj ##");
+    conOut->OutputString(conOut,L"\r\n###############################################################################\r\n\r\n");
+}
 
-static uint64_t AsmReadMsr64(uint32_t index)
-{
+static uint64_t AsmReadMsr64(uint32_t index){
     uint32_t low;
     uint32_t high;
     uint64_t val;
@@ -24,8 +30,7 @@ static uint64_t AsmReadMsr64(uint32_t index)
     return val;
 }
 
-static uint64_t AsmWriteMsr64(uint32_t index, uint64_t val)
-{
+static uint64_t AsmWriteMsr64(uint32_t index, uint64_t val){
     uint32_t low;
     uint32_t high;
 
@@ -43,13 +48,7 @@ static uint64_t AsmWriteMsr64(uint32_t index, uint64_t val)
     return val;
 }
 
-void print_head(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut){
-	conOut->OutputString(conOut,L"\r\n###############################################################################");
-	conOut->OutputString(conOut,L"\r\n##                              Zero BDProcHot                               ##");
-	conOut->OutputString(conOut,L"\r\n##---------------------------------------------------------------------------##");
-	conOut->OutputString(conOut,L"\r\n## (c)2023 HoefkensJ                        https://www.github.com/hoefkensj ##");
-	conOut->OutputString(conOut,L"\r\n###############################################################################\r\n\r\n");
-	}
+
 
 
 // Helper function to print a single bit
