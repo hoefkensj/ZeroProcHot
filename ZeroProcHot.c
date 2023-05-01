@@ -131,7 +131,7 @@ EFI_STATUS
 efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systemTable)
 {
     uint64_t val;
-    UINTN index, i;
+    UINTN i;
     SIMPLE_TEXT_OUTPUT_INTERFACE *conOut = systemTable->ConOut;
     print_head(conOut);
     val = AsmReadMsr64(0x1FC);
@@ -142,7 +142,7 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systemTable)
         clear_ProcHot(conOut,systemTable);
     }else{
         for(i=0;i<500;i++) {
-            systemTable->BootServices->WaitForEvent(1, &systemTable->ConIn->WaitForKey, &index);
+            // systemTable->BootServices->WaitForEvent(1, &systemTable->ConIn->WaitForKey, &index);
              EFI_INPUT_KEY key;
             systemTable->ConIn->ReadKeyStroke(systemTable->ConIn, &key);
             // read the key (would be blocking, but since there's a key it returns immediately)
@@ -154,7 +154,7 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systemTable)
             break;
             }
             // delay 1ms
-            systemTable->BootServices->Stall(1000);
+            systemTable->BootServices->Stall(1000000);
         }  
 
     return EFI_SUCCESS;
