@@ -9,3 +9,4 @@ objcopy -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .
 sudo cp ZeroProcHot_x64.efi /mnt/qemu/EFI/reFind/drivers_x64/
 ls -l ZeroProcHot_x64.efi
 md5sum ZeroProcHot_x64.efi
+e
