@@ -14,6 +14,10 @@
 
 uint64_t val,nval;
 
+SIMPLE_TEXT_OUTPUT_INTERFACE *conOut;
+EFI_SYSTEM_TABLE *systemTable ;
+
+
 void print_head(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut) {
     conOut->OutputString(conOut, L"\r\n###############################################################################");
     conOut->OutputString(conOut, L"\r\n##                              Zero BDProcHot                               ##");
@@ -28,34 +32,33 @@ void print_menu(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut){
     conOut->OutputString(conOut, L"\r\n\t0. Exit");
 }
 
-// Helper function to print a single bit
-void print_bit(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, uint64_t val, int bit) {
+void print_bit( uint64_t val, int bit) {
     if (val & ((uint64_t)1 << bit))
         conOut->OutputString(conOut, L"1");
     else
         conOut->OutputString(conOut, L"0");
 }
-// Print a 64-bit value as binary
-void print_bits(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, uint64_t val) {
+
+void print_bits(uint64_t val) {
     int i;
     for (i = 63; i >= 0; i--) {
         conOut->OutputString(conOut, (val & (1ull << i)) ? L"1" : L"0");
     }
 }
 
-void print_bintable(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, uint64_t val,uint64_t op,uint64_t nval,char* opcode){
+void print_bintable(uint64_t val,uint64_t op,uint64_t nval, const char *opcode){
     conOut->OutputString(conOut, L"\r\n0x1FC:  ");
-    print_bits(conOut, val);
+    print_bits( val);
     conOut->OutputString(conOut, L"\r\n");
 
     conOut->OutputString(conOut, opcode);
-    print_bits(conOut, op);
+    print_bits( op);
     conOut->OutputString(conOut, L"\r\n");
 
     conOut->OutputString(conOut, L"------------------------------------------------------------------------------\r\n");
     
     conOut->OutputString(conOut, L"\r\n RESULT :  ");
-    print_bits(conOut, nval);
+    print_bits( nval);
     conOut->OutputString(conOut, L"\r\n");
 }
 
@@ -90,11 +93,11 @@ static uint64_t AsmWriteMsr64(uint32_t index, uint64_t val) {
     return val;
 }
 
-int getConfirmation(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, EFI_SYSTEM_TABLE *systemTable) {
+int getConfirmation(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut) {
     int result = 1;
     uint64_t index;
 
-    conOut->OutputString(conOut, L"\r\n(Y/n) ");
+    conOut->OutputString(conOut, L"\r\nApply these settings? (Y/n)\r\n");
     // Wait for user input, with 'Y' as default
 
     systemTable->BootServices->WaitForEvent(1, &systemTable->ConIn->WaitForKey, &index);
@@ -106,15 +109,15 @@ int getConfirmation(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, EFI_SYSTEM_TABLE *syst
     return result;
 }
 
-void set_ProcHot(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, EFI_SYSTEM_TABLE *systemTable) {
+void set_ProcHot(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut) {
     uint64_t val = AsmReadMsr64(0x1FC);
     uint64_t setbitzero = 1;  
     uint64_t nval = val | setbitzero;
-    int yesno;
-    char opcode = L"   OR:";
-    print_bintable(conOut,val,setbitzero,nval,opcode);
-    yesno = getConfirmation(conOut, systemTable);
-    if (yesno == 1) {
+    const char opcode[6] = "   OR:";
+
+    print_bintable(val,setbitzero,nval,opcode);
+
+    if (getConfirmation( systemTable) == 1) {
         AsmWriteMsr64(0x1FC, nval);
         conOut->OutputString(conOut, L"\r\nBD PROCHOT is now enabled!\r\n");
     } else {
@@ -122,31 +125,25 @@ void set_ProcHot(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut, EFI_SYSTEM_TABLE *systemT
     }
 }
 
-void clear_ProcHot(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut,EFI_SYSTEM_TABLE *systemTable){
+void clear_ProcHot(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut){
     uint64_t val = AsmReadMsr64(0x1FC);
     uint64_t zerobitzero =  18446744073709551614;
     uint64_t nval = val & zerobitzero;
-    int yesno;
-    char opcode = L"  AND:";
-    uint64_t index;
+    const char opcode[6] = "  AND:";
 
-    print_bintable(conOut, val,zerobitzero,nval,opcode);
-
-    yesno=getConfirmation(conOut,systemTable);
-    if (yesno == 1) {
+    print_bintable( val,zerobitzero,nval,opcode);
+    if (getConfirmation(systemTable) == 1) {
         AsmWriteMsr64(0x1FC, nval);
         conOut->OutputString(conOut, L"\r\nBD PROCHOT disabled\r\n");
-        val = AsmReadMsr64(0x1FC);
-        print_bits(conOut, val);
-        conOut->OutputString(conOut, L"\r\n");
-        EFI_INPUT_KEY key;
-        systemTable->BootServices->WaitForEvent(1, &systemTable->ConIn->WaitForKey, &index); 
-    //else if 'n' or 'N' skip this section
+    } else {
+        conOut->OutputString(conOut, L"\r\nOperation aborted by user!\r\n");
     }
+ 
 }
 
 
 void interactive(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut,EFI_SYSTEM_TABLE *systemTable){
+    uint64_t val= AsmReadMsr64(0x1FC);
     if (val & 1){
         conOut->OutputString(conOut, L"\r\nBD_PROCHOT: 1");  
     }else{
@@ -156,9 +153,9 @@ void interactive(SIMPLE_TEXT_OUTPUT_INTERFACE *conOut,EFI_SYSTEM_TABLE *systemTa
     EFI_INPUT_KEY key;
 ask: systemTable->ConIn->ReadKeyStroke(systemTable->ConIn, &key);
     if (key.UnicodeChar == '1')  {
-        clear_ProcHot(conOut,systemTable);
+        clear_ProcHot(systemTable);
     }else if (key.UnicodeChar == '2'){
-        set_ProcHot(conOut,systemTable);
+        set_ProcHot(systemTable);
     }else if (key.UnicodeChar == '0' ){
         return;
     }else{
@@ -168,26 +165,24 @@ ask: systemTable->ConIn->ReadKeyStroke(systemTable->ConIn, &key);
 }
 
 EFI_STATUS
-efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systemTable)
+efi_main(EFI_HANDLE image,EFI_SYSTEM_TABLE *systemTable )
 {
-    uint64_t val;
-    UINTN i;
-    SIMPLE_TEXT_OUTPUT_INTERFACE *conOut = systemTable->ConOut;
+
+    int i;
     print_head(conOut);
-    val = AsmReadMsr64(0x1FC);
     conOut->OutputString(conOut, L"Press Esc for interactive mode ");
-    for(i=0;i<5;i++) {
+    for(i=0;i<500;i++) {
         // systemTable->BootServices->WaitForEvent(1, &systemTable->ConIn->WaitForKey, &index);
         conOut->OutputString(conOut, L".");
         EFI_INPUT_KEY key;
         systemTable->ConIn->ReadKeyStroke(systemTable->ConIn, &key);
-        if (key.ScanCode == SCAN_ESC) {
-            print_head(conOut);
-            interactive(conOut,systemTable);
+        if (key.ScanCode == SCAN_ESC || key.UnicodeChar == '`') {
+
+            interactive(conOut, systemTable);
             break;
         }
             
-        systemTable->BootServices->Stall(100000);
+        systemTable->BootServices->Stall(1000);
     }    
     return EFI_SUCCESS;
 
