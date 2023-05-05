@@ -119,17 +119,17 @@ uint8_t
 ConfirmAndWrite(uint64_t val,CHAR16 *msg) {
   int result = 1;
   uint64_t index;
-  strOut(tcO, L"(Y/n)"); 
-
+  strOut(tcO, L"\r\n\r\nWrite Result to System? (Y/n)"); 
   sT->BootServices->WaitForEvent(1, &sT->ConIn->WaitForKey, &index);
   EFI_INPUT_KEY key;
   sT->ConIn->ReadKeyStroke(sT->ConIn, &key);
-  if (key.UnicodeChar == 'n' || key.UnicodeChar == 'N') {
-      toMsg(L"\r\nAborted by user!\r\n", 10); 
+  strClear(tcO,FALSE);  
+  if (key.ScanCode == SCAN_ESC ||key.UnicodeChar == 'n' || key.UnicodeChar == 'N') {
+      toMsg(L"\r\n\r\n\r\n\r\nAborted by user!", 20); 
       result = 0;
   } else {
       AsmWriteMsr64(0x1FC, val); 
-      toMsg(msg, 10); 
+      toMsg(msg, 20); 
   }
   return result;
 }
@@ -159,8 +159,10 @@ menu (uint8_t choice){
 uint8_t 
 choose(uint8_t choice){
   uint8_t exit = 0; 
+  uint64_t index;
   if (choice == 1){ 
     read_0x1fc();
+    sT->BootServices->WaitForEvent(1, &sT->ConIn->WaitForKey, &index);
   } else if (choice == 2){
     clear_ProcHot();
   } else if (choice == 3){
@@ -185,7 +187,7 @@ menuloop () {
       strOut(tcO, L"\r\n");
       read_ProcHot();
       strOut(tcO, L"\r\n\r\nMenu : ");
-      strOut(tcO, L"\r\n-------------------\r\n");
+      strOut(tcO, L"\r\n----------------------\r\n");
       menu(choice);
 
 
@@ -210,10 +212,10 @@ menuloop () {
       choose(choice);
       goto mnu;
     }else if(key.ScanCode == SCAN_UP){
-      choice--;
+      choice=(choice+3)%4;
       goto mnu;
     }else if(key.ScanCode == SCAN_DOWN){
-      choice++;
+      choice=(choice+1)%4;
       goto mnu;
     }else if(key.UnicodeChar == CHAR_CARRIAGE_RETURN) {
       exit=choose(choice);
@@ -259,7 +261,7 @@ set_ProcHot() {
   strRow(tblOR,setbitzero);
   strOut(tcO,tblHL);  
   strRow(tblRES,nval);
-  ConfirmAndWrite(nval,L"\r\nBD_PROCHOT is now Enabled!\r\n")
+  ConfirmAndWrite(nval,L"\r\nBD_PROCHOT is now Enabled!  ");
 }
 
 void
@@ -275,13 +277,12 @@ clear_ProcHot(){
   strRow(tblAND,clearbitzero);
   strOut(tcO,tblHL);  
   strRow(tblRES,nval);
-  ConfirmAndWrite( nval, L"\r\nBD_PROCHOT is now Disabled!\r\n"); 
+  ConfirmAndWrite( nval, L"\r\nBD_PROCHOT is now Disabled!  "); 
 }
 
-void read_0x1fc(){
+void 
+read_0x1fc(){
   uint64_t val = AsmReadMsr64(0x1FC);
-  uint64_t clearbitzero =  0xFFFFFFFFFFFFFFFE;
-  uint64_t nval = val & clearbitzero;    
   CHAR16 *tblADR  =L"\r\n 0x1FC:  ";
   strRow(tblADR,val); 
 }
