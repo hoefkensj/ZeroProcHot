@@ -19,7 +19,7 @@ EFI_STALL bsSlp;
 EFI_WAIT_FOR_EVENT evtWait;
 EFI_EVENT keyWait;   
 
-uint8_t getConfirmation(); 
+uint8_t ConfirmAndWrite(uint64_t val,CHAR16 *msg); 
 void strHeader();
 uint8_t toMsg(CHAR16 *msg, uint64_t to);
 void menu (uint8_t choice);
@@ -27,9 +27,10 @@ void menuloop ();
 void strRow(CHAR16 *head,uint64_t data);
 void print_bits(uint64_t val);
 void print_bit(uint64_t val, int bit) ;
-uint64_t clear_ProcHot();
+void clear_ProcHot();
 uint64_t read_ProcHot();
-uint64_t set_ProcHot();
+void set_ProcHot();
+void read_0x1fc();
 
 uint64_t
 AsmReadMsr64(uint32_t addr) {
@@ -115,23 +116,23 @@ toMsg(CHAR16*msg, uint64_t to){
 
 
 uint8_t
-getConfirmation() {
+ConfirmAndWrite(uint64_t val,CHAR16 *msg) {
   int result = 1;
   uint64_t index;
-
-
   strOut(tcO, L"(Y/n)"); 
 
   sT->BootServices->WaitForEvent(1, &sT->ConIn->WaitForKey, &index);
   EFI_INPUT_KEY key;
   sT->ConIn->ReadKeyStroke(sT->ConIn, &key);
   if (key.UnicodeChar == 'n' || key.UnicodeChar == 'N') {
-      strOut(tcO, L"\r\nAborted by user!\r\n"); 
+      toMsg(L"\r\nAborted by user!\r\n", 10); 
       result = 0;
+  } else {
+      AsmWriteMsr64(0x1FC, val); 
+      toMsg(msg, 10); 
   }
   return result;
 }
-
 
 
 void
@@ -139,7 +140,7 @@ menu (uint8_t choice){
   CHAR16 *menu[4];
   int idx=((choice+3)%4);
 
-  menu[0]= L"1. Read BD_PROCHOT";
+  menu[0]= L"1. Read 0x1FC";
   menu[1]= L"2. Clear BD_PROCHOT";
   menu[2]= L"3. Set BD_PROCHOT";
   menu[3]= L"0. Exit";
@@ -159,7 +160,7 @@ uint8_t
 choose(uint8_t choice){
   uint8_t exit = 0; 
   if (choice == 1){ 
-    read_ProcHot();
+    read_0x1fc();
   } else if (choice == 2){
     clear_ProcHot();
   } else if (choice == 3){
@@ -196,37 +197,31 @@ menuloop () {
     if (key.UnicodeChar == '0')  {
       choice=0;
       goto end;
-    } else if (key.UnicodeChar == '1'){ 
+    }else if(key.UnicodeChar == '1'){ 
       choice=1;
       choose(choice);
       goto mnu;
-    } else if (key.UnicodeChar == '2'){
+    }else if(key.UnicodeChar == '2'){
       choice=2;
       choose(choice);
       goto mnu;
-    } else if (key.UnicodeChar == '3'){
+    }else if(key.UnicodeChar == '3'){
       choice=3;
       choose(choice);
       goto mnu;
-    } else if (key.ScanCode == SCAN_UP){
+    }else if(key.ScanCode == SCAN_UP){
       choice--;
       goto mnu;
-    } else if (key.ScanCode == SCAN_DOWN){
+    }else if(key.ScanCode == SCAN_DOWN){
       choice++;
       goto mnu;
-    } else if (key.UnicodeChar == CHAR_CARRIAGE_RETURN) {
+    }else if(key.UnicodeChar == CHAR_CARRIAGE_RETURN) {
       exit=choose(choice);
-      if (exit == 1){
-        goto end;
-      }
-    } else {
-      goto mnu; 
-    }
-
-
+      if (exit == 1) goto end;
+    }else goto mnu;
   }
 
-     end: return; 
+  end: return; 
 }
 
 void
@@ -251,7 +246,7 @@ strRow(CHAR16 *head,uint64_t data){
   print_bits( data);
 }
 
-uint64_t 
+void
 set_ProcHot() {
   uint64_t val = AsmReadMsr64(0x1FC);
   uint64_t setbitzero = 1;  
@@ -264,16 +259,11 @@ set_ProcHot() {
   strRow(tblOR,setbitzero);
   strOut(tcO,tblHL);  
   strRow(tblRES,nval);
-  if (getConfirmation() == 1) { 
-    AsmWriteMsr64(0x1FC, nval); 
-    strOut(tcO, L"\r\nBD_PROCHOT is now Enabled!\r\n"); 
-  }
-  return nval;
+  ConfirmAndWrite(nval,L"\r\nBD_PROCHOT is now Enabled!\r\n")
 }
 
-uint64_t 
+void
 clear_ProcHot(){
-
   uint64_t val = AsmReadMsr64(0x1FC);
   uint64_t clearbitzero =  0xFFFFFFFFFFFFFFFE;
   uint64_t nval = val & clearbitzero;    
@@ -285,13 +275,17 @@ clear_ProcHot(){
   strRow(tblAND,clearbitzero);
   strOut(tcO,tblHL);  
   strRow(tblRES,nval);
-  if (getConfirmation() == 1) { 
-    AsmWriteMsr64(0x1FC, nval); 
-    strOut(tcO, L"\r\nBD_PROCHOT is now Disabled!\r\n"); 
-  }
-
-  return nval;
+  ConfirmAndWrite( nval, L"\r\nBD_PROCHOT is now Disabled!\r\n"); 
 }
+
+void read_0x1fc(){
+  uint64_t val = AsmReadMsr64(0x1FC);
+  uint64_t clearbitzero =  0xFFFFFFFFFFFFFFFE;
+  uint64_t nval = val & clearbitzero;    
+  CHAR16 *tblADR  =L"\r\n 0x1FC:  ";
+  strRow(tblADR,val); 
+}
+
 
 uint64_t
 read_ProcHot(){
@@ -304,6 +298,4 @@ read_ProcHot(){
   }
   return bit;
 }
-
-
 
