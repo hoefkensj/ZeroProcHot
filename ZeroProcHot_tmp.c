@@ -21,6 +21,7 @@ EFI_EVENT keyWait;
 
 uint8_t getConfirmation(); 
 void strHeader();
+uint8_t toMsg(CHAR16 *msg, uint64_t to);
 void menu (uint8_t choice);
 void menuloop ();
 void strRow(CHAR16 *head,uint64_t data);
@@ -68,30 +69,50 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systemTable) {
   strClear = tcO->Reset;
   keyRead = tcI->ReadKeyStroke;
   bsSlp = tbS->Stall;
-  EFI_INPUT_KEY key;
-  CHAR16 *toMsg = L"ZeroProcHot : Press Esc for interactive mode ";
-
+  CHAR16 *msg = L"ZeroProcHot : Press Esc for interactive mode ";
   //clear the screen 
   strClear(tcO,FALSE);  
-  strOut(tcO,toMsg);
+  if (toMsg(msg,10)){
+      strClear(tcO,FALSE);  
+      strHeader();
+      menuloop();
+  } 
+  return EFI_SUCCESS;
+}
 
-  for(int i=0;i<10;i++) {
-    // sT->BootServices->WaitForEvent(1, &sT->ConIn->WaitForKey, &index);
+void
+strHeader() {
+  CHAR16 *head[5];
+  head[0] = L"\r\n(c)2023 HoefkensJ";
+  head[1] = L"               Zero BDProcHot            ";
+  head[2] = L"github.com/hoefkensj";
+  head[3] = L"\r\n-------------------------------------------------------------------------------";
+  head[4] = L"\r\n";
+  for (int i = 0; i < 5; i++) { 
+    strOut(tcO, head[i]);
+  }
+}
+
+uint8_t
+toMsg(CHAR16*msg, uint64_t to){
+  uint8_t keypressed = 0;
+  EFI_INPUT_KEY key;
+  strOut(tcO,msg);
+  for(int i=0;i<to;i++) {
     // print a dot to the screen
     strOut(tcO, L".");
     keyRead(tcI, &key);
     if (key.ScanCode == SCAN_ESC || key.UnicodeChar == '`') {
-      strClear(tcO,FALSE);  
-      strHeader();
-      menuloop();
+      keypressed=1;
       goto end;
     } else {            
       bsSlp(100000);
     }
   }
-  end:  
-  return EFI_SUCCESS;
+  end:
+  return keypressed;
 }
+
 
 uint8_t
 getConfirmation() {
@@ -111,30 +132,19 @@ getConfirmation() {
   return result;
 }
 
-void
-strHeader() {
-  CHAR16 *head[5];
-  head[0] = L"\r\n###############################################################################";
-  head[1] = L"\r\n##                              Zero BDProcHot                               ##";
-  head[2] = L"\r\n##---------------------------------------------------------------------------##";
-  head[3] = L"\r\n## (c)2023 HoefkensJ                        https://www.github.com/hoefkensj ##";
-  head[4] = L"\r\n###############################################################################\r\n";
-  for (int i = 0; i < 5; i++) { 
-    strOut(tcO, head[i]);
-  }
-}
+
 
 void
 menu (uint8_t choice){
   CHAR16 *menu[4];
-  int idx=(choice%4);
+  int idx=((choice+3)%4);
 
   menu[0]= L"1. Read BD_PROCHOT";
   menu[1]= L"2. Clear BD_PROCHOT";
   menu[2]= L"3. Set BD_PROCHOT";
   menu[3]= L"0. Exit";
 
-  for (int i = 0; i < 5; i++)  {
+  for (int i = 0; i < 4; i++)  {
     if ( i == idx){
       strOut(tcO, L"> ");
     } else {
@@ -145,15 +155,19 @@ menu (uint8_t choice){
   }
 }
 
-void
+uint8_t 
 choose(uint8_t choice){
+  uint8_t exit = 0; 
   if (choice == 1){ 
     read_ProcHot();
   } else if (choice == 2){
     clear_ProcHot();
   } else if (choice == 3){
     set_ProcHot();
+  } else if (choice == 0){
+    exit=1;
   }
+  return exit;
 }
 
 void
@@ -161,6 +175,7 @@ menuloop () {
   // EFI_INPUT_KEY key;
   uint64_t index;
   uint8_t choice = 1;
+  uint8_t exit = 0;
 
   while(1) {
     mnu:
@@ -170,7 +185,7 @@ menuloop () {
       read_ProcHot();
       strOut(tcO, L"\r\n\r\nMenu : ");
       strOut(tcO, L"\r\n-------------------\r\n");
-      menu(choice%4);
+      menu(choice);
 
 
     sT->BootServices->WaitForEvent(1, &sT->ConIn->WaitForKey, &index);
@@ -199,8 +214,11 @@ menuloop () {
     } else if (key.ScanCode == SCAN_DOWN){
       choice++;
       goto mnu;
-    } else if (key.ScanCode == CHAR_CARRIAGE_RETURN) {
-      choose(choice);
+    } else if (key.UnicodeChar == CHAR_CARRIAGE_RETURN) {
+      exit=choose(choice);
+      if (exit == 1){
+        goto end;
+      }
     } else {
       goto mnu; 
     }
@@ -263,12 +281,11 @@ clear_ProcHot(){
   CHAR16 *tblAND  =L"\r\n   AND:  ";
   CHAR16 *tblHL   =L"\r\n------------------------------------------------------------------------------";
   CHAR16 *tblRES  =L"\r\nRESULT:  ";
-  strOut(tcO, tblADR);
   strRow(tblADR,val); 
   strRow(tblAND,clearbitzero);
   strOut(tcO,tblHL);  
   strRow(tblRES,nval);
-    if (getConfirmation() == 1) { 
+  if (getConfirmation() == 1) { 
     AsmWriteMsr64(0x1FC, nval); 
     strOut(tcO, L"\r\nBD_PROCHOT is now Disabled!\r\n"); 
   }
