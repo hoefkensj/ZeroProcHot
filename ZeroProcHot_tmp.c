@@ -103,7 +103,7 @@ toMsg(CHAR16*msg, uint64_t to){
     // print a dot to the screen
     strOut(tcO, L".");
     keyRead(tcI, &key);
-    if (key.ScanCode == SCAN_ESC || key.UnicodeChar == '`') {
+    if (key.UnicodeChar == CHAR_CARRIAGE_RETURN|| key.ScanCode == SCAN_ESC || key.UnicodeChar == '`') {
       keypressed=1;
       goto end;
     } else {            
