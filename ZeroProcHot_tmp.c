@@ -7,13 +7,13 @@
 #include <efierr.h>
 #include <stdlib.h>
 
-
+#define VERSION "0v402"
 #define HEAD0 L"(c)2023 HoefkensJ            Zero BDProcHot 0v402        github.com/hoefkensj"
 #define HEAD1 L"\r\n-------------------------------------------------------------------------------\r\n"
-#define TBL_HL L"       =-----------------------------------------------------------------"
+#define TBL_HL L"     = ------------------------------------------------------------------"
 
 #define DEF_STALL 100000
-#define MSG_CONFIRM  L"\r\nWrite Result to System? (Y/n) "
+#define MSG_CONFIRM  L"\r\n\r\n\r\nWrite Result to System? (Y/n) "
 #define MSG_INTERACTIVE L"ZeroProcHot : Press Esc for interactive mode "
 #define MSG_ABORT L"\r\nAborted by user!"
 #define MSG_ENABLED L"\r\nBD_PROCHOT is now Enabled!  "
@@ -26,7 +26,7 @@ EFI_BOOT_SERVICES *tbS;
 SIMPLE_TEXT_OUTPUT_INTERFACE *tcO;
 SIMPLE_INPUT_INTERFACE *tcI;
 EFI_TEXT_OUTPUT_STRING strOut;
-EFI_TEXT_RESET strClear;
+EFI_TEXT_RESET scrClear;
 EFI_INPUT_READ_KEY keyRead;
 EFI_STALL bsSlp;
 
@@ -82,16 +82,14 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systemTable) {
   tcO = sT->ConOut;
   tcI = sT->ConIn;
   strOut = tcO->OutputString;
-  strClear = tcO->Reset;
+  scrClear = tcO->Reset;
   keyRead = tcI->ReadKeyStroke;
   bsSlp = tbS->Stall;
   CHAR16 *msg = MSG_INTERACTIVE;
   uint8_t choice = 1 ;
   //clear the screen 
-  strClear(tcO,FALSE);  
+  scrClear(tcO,FALSE);  
   if (toMsg(msg,10,L".")){
-    strClear(tcO,FALSE);  
-    strHeader();
     while  (choice != 0){ 
       choice=menuloop();
       choose(choice);
@@ -102,8 +100,7 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systemTable) {
 
 void
 strHeader() {
-  strOut(tcO,HEAD0);
-  strOut(tcO,HEAD1);
+
 }
 
 uint8_t
@@ -132,7 +129,7 @@ ConfirmAndWrite(uint64_t val,CHAR16 *msg) {
   sT->BootServices->WaitForEvent(1, &sT->ConIn->WaitForKey, &index);
   EFI_INPUT_KEY key;
   sT->ConIn->ReadKeyStroke(sT->ConIn, &key);
-  strClear(tcO,FALSE);  
+  scrClear(tcO,FALSE);  
   if ( key.ScanCode    == SCAN_ESC ||
        key.UnicodeChar == 'n'      ||
        key.UnicodeChar == 'N') {      
@@ -152,7 +149,8 @@ menu (uint8_t choice){
   menu[1]= L"2. Clear BD_PROCHOT";
   menu[2]= L"3. Set BD_PROCHOT";
   menu[3]= L"0. Exit";
-
+  strOut(tcO, L"\r\n\r\nMenu : ");
+  strOut(tcO, L"\r\n----------------------\r\n");
   for (int i = 0; i < 4; i++)  {
     if ( i == idx){
       strOut(tcO, L"> ");
@@ -184,23 +182,23 @@ choose(uint8_t choice){
 
 uint8_t
 menuloop () {
-  // EFI_INPUT_KEY key;
   uint64_t index;
   uint8_t choice = 1;
   CHAR16 keychar;
+  EFI_INPUT_KEY key;
   while (1){
     mnu:
-      strClear(tcO,FALSE);  
-      strHeader(tcO);
+      scrClear(tcO,FALSE);  
+      strOut(tcO,HEAD0);
+      strOut(tcO,HEAD1);
       strOut(tcO, L"\r\n");
-      if ((AsmReadMsr64(0x1FC) & 1) == 1)  strOut(tcO, L"BD_PROCHOT: 1"); 
-      else  strOut(tcO, L"BD_PROCHOT: 0"); 
-      strOut(tcO, L"\r\n\r\nMenu : ");
-      strOut(tcO, L"\r\n----------------------\r\n");
+      strOut(tcO, L"BD_PROCHOT: ");
+      strOut(tcO, (AsmReadMsr64(0x1FC) & 1) ? L"1" : L"0" ) ;
+
+
       menu(choice);
 
     sT->BootServices->WaitForEvent(1, &sT->ConIn->WaitForKey, &index);
-    EFI_INPUT_KEY key;
     sT->ConIn->ReadKeyStroke(sT->ConIn, &key);
     keychar=key.UnicodeChar;
     if (keychar >= '0' && keychar <= '3') {
@@ -222,13 +220,6 @@ menuloop () {
 
 
 void
-print_bits(uint64_t val) {
-  for (int i = 63; i >= 0; i--)
-    if (val & ((uint64_t)1 << i)) strOut(tcO, L"1");
-    else strOut(tcO, L"0");
-}
-
-void
 table(uint64_t term,CHAR16 *op, uint64_t result){
   CHAR16 *tblHL   = TBL_HL ;
   strRow(op,term); 
@@ -241,7 +232,9 @@ void
 strRow(CHAR16 *head,uint64_t data){
   strOut(tcO, L"\r\n");
   strOut(tcO, head);
-  print_bits( data);
+  for (int i = 63; i >= 0; i--) {
+      strOut(tcO, (data & (1ULL << i)) ? L"1" : L"0");
+  }
 }
 
 void
