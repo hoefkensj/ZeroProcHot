@@ -7,6 +7,20 @@
 #include <efierr.h>
 #include <stdlib.h>
 
+
+#define HEAD0 L"(c)2023 HoefkensJ            Zero BDProcHot 0v402        github.com/hoefkensj"
+#define HEAD1 L"\r\n-------------------------------------------------------------------------------\r\n"
+#define TBL_HL L"       =-----------------------------------------------------------------"
+
+#define DEF_STALL 100000
+#define MSG_CONFIRM  L"\r\nWrite Result to System? (Y/n) "
+#define MSG_INTERACTIVE L"ZeroProcHot : Press Esc for interactive mode "
+#define MSG_ABORT L"\r\nAborted by user!"
+#define MSG_ENABLED L"\r\nBD_PROCHOT is now Enabled!  "
+#define MSG_DISABLED L"\r\nBD_PROCHOT is now Disabled!  "
+#define CLEAR_ZERO 0xFFFFFFFFFFFFFFFE
+#define SET_ZERO 1
+
 EFI_SYSTEM_TABLE *sT;
 EFI_BOOT_SERVICES *tbS;
 SIMPLE_TEXT_OUTPUT_INTERFACE *tcO;
@@ -17,20 +31,21 @@ EFI_INPUT_READ_KEY keyRead;
 EFI_STALL bsSlp;
 
 EFI_WAIT_FOR_EVENT evtWait;
-EFI_EVENT keyWait;   
+EFI_EVENT keyWait;
 
-uint8_t ConfirmAndWrite(uint64_t val,CHAR16 *msg); 
 void strHeader();
-uint8_t toMsg(CHAR16 *msg, uint64_t to);
+uint8_t toMsg(CHAR16*msg, uint64_t to,CHAR16 *prog);
+void ConfirmAndWrite(uint64_t val,CHAR16 *msg) ; 
+void choose(uint8_t choice);
+
 void menu (uint8_t choice);
-void menuloop ();
+uint8_t menuloop ();
 void strRow(CHAR16 *head,uint64_t data);
 void print_bits(uint64_t val);
-void print_bit(uint64_t val, int bit) ;
 void clear_ProcHot();
-uint64_t read_ProcHot();
+void read_ProcHot();
 void set_ProcHot();
-void read_0x1fc();
+uint64_t read_0x1fc();
 
 uint64_t
 AsmReadMsr64(uint32_t addr) {
@@ -70,70 +85,63 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systemTable) {
   strClear = tcO->Reset;
   keyRead = tcI->ReadKeyStroke;
   bsSlp = tbS->Stall;
-  CHAR16 *msg = L"ZeroProcHot : Press Esc for interactive mode ";
+  CHAR16 *msg = MSG_INTERACTIVE;
+  uint8_t choice = 1 ;
   //clear the screen 
   strClear(tcO,FALSE);  
-  if (toMsg(msg,10)){
-      strClear(tcO,FALSE);  
-      strHeader();
-      menuloop();
+  if (toMsg(msg,10,L".")){
+    strClear(tcO,FALSE);  
+    strHeader();
+    while  (choice != 0){ 
+      choice=menuloop();
+      choose(choice);
+    }
   } 
   return EFI_SUCCESS;
 }
 
 void
 strHeader() {
-  CHAR16 *head[5];
-  head[0] = L"\r\n(c)2023 HoefkensJ";
-  head[1] = L"               Zero BDProcHot            ";
-  head[2] = L"github.com/hoefkensj";
-  head[3] = L"\r\n-------------------------------------------------------------------------------";
-  head[4] = L"\r\n";
-  for (int i = 0; i < 5; i++) { 
-    strOut(tcO, head[i]);
-  }
+  strOut(tcO,HEAD0);
+  strOut(tcO,HEAD1);
 }
 
 uint8_t
-toMsg(CHAR16*msg, uint64_t to){
+toMsg(CHAR16*msg, uint64_t to,CHAR16 *prog){
   uint8_t keypressed = 0;
   EFI_INPUT_KEY key;
+
   strOut(tcO,msg);
   for(int i=0;i<to;i++) {
-    // print a dot to the screen
-    strOut(tcO, L".");
+    if (i%5 == 0) strOut(tcO, prog);     
     keyRead(tcI, &key);
     if (key.UnicodeChar == CHAR_CARRIAGE_RETURN|| key.ScanCode == SCAN_ESC || key.UnicodeChar == '`') {
       keypressed=1;
-      goto end;
-    } else {            
-      bsSlp(100000);
+      break;
     }
+    bsSlp(DEF_STALL);
   }
-  end:
   return keypressed;
 }
 
-
-uint8_t
+void
 ConfirmAndWrite(uint64_t val,CHAR16 *msg) {
-  int result = 1;
+
   uint64_t index;
-  strOut(tcO, L"\r\n\r\nWrite Result to System? (Y/n)"); 
+  strOut(tcO, MSG_CONFIRM); 
   sT->BootServices->WaitForEvent(1, &sT->ConIn->WaitForKey, &index);
   EFI_INPUT_KEY key;
   sT->ConIn->ReadKeyStroke(sT->ConIn, &key);
   strClear(tcO,FALSE);  
-  if (key.ScanCode == SCAN_ESC ||key.UnicodeChar == 'n' || key.UnicodeChar == 'N') {
-      toMsg(L"\r\n\r\n\r\n\r\nAborted by user!", 20); 
-      result = 0;
+  if ( key.ScanCode    == SCAN_ESC ||
+       key.UnicodeChar == 'n'      ||
+       key.UnicodeChar == 'N') {      
+      toMsg(MSG_ABORT, 20, L""); 
   } else {
       AsmWriteMsr64(0x1FC, val); 
-      toMsg(msg, 20); 
+      toMsg(msg, 20, L""); 
   }
-  return result;
 }
-
 
 void
 menu (uint8_t choice){
@@ -156,89 +164,77 @@ menu (uint8_t choice){
   }
 }
 
-uint8_t 
+void
 choose(uint8_t choice){
-  uint8_t exit = 0; 
   uint64_t index;
-  if (choice == 1){ 
-    read_0x1fc();
-    sT->BootServices->WaitForEvent(1, &sT->ConIn->WaitForKey, &index);
-  } else if (choice == 2){
-    clear_ProcHot();
-  } else if (choice == 3){
-    set_ProcHot();
-  } else if (choice == 0){
-    exit=1;
+  switch (choice) {
+    case 1:
+      read_0x1fc();
+      sT->BootServices->WaitForEvent(1, &sT->ConIn->WaitForKey, &index);
+      break;
+    case 2:
+      clear_ProcHot();
+      break;
+    case 3:
+      set_ProcHot();
+      break;
+    default: break;
   }
-  return exit;
 }
 
-void
+uint8_t
 menuloop () {
   // EFI_INPUT_KEY key;
   uint64_t index;
   uint8_t choice = 1;
-  uint8_t exit = 0;
-
-  while(1) {
+  CHAR16 keychar;
+  while (1){
     mnu:
       strClear(tcO,FALSE);  
       strHeader(tcO);
       strOut(tcO, L"\r\n");
-      read_ProcHot();
+      if ((AsmReadMsr64(0x1FC) & 1) == 1)  strOut(tcO, L"BD_PROCHOT: 1"); 
+      else  strOut(tcO, L"BD_PROCHOT: 0"); 
       strOut(tcO, L"\r\n\r\nMenu : ");
       strOut(tcO, L"\r\n----------------------\r\n");
       menu(choice);
 
-
     sT->BootServices->WaitForEvent(1, &sT->ConIn->WaitForKey, &index);
     EFI_INPUT_KEY key;
     sT->ConIn->ReadKeyStroke(sT->ConIn, &key);
-    strOut(tcO,&key.UnicodeChar);
-
-    if (key.UnicodeChar == '0')  {
-      choice=0;
-      goto end;
-    }else if(key.UnicodeChar == '1'){ 
-      choice=1;
-      choose(choice);
-      goto mnu;
-    }else if(key.UnicodeChar == '2'){
-      choice=2;
-      choose(choice);
-      goto mnu;
-    }else if(key.UnicodeChar == '3'){
-      choice=3;
-      choose(choice);
-      goto mnu;
+    keychar=key.UnicodeChar;
+    if (keychar >= '0' && keychar <= '3') {
+      choice = keychar - '0';
+      break;
     }else if(key.ScanCode == SCAN_UP){
       choice=(choice+3)%4;
       goto mnu;
     }else if(key.ScanCode == SCAN_DOWN){
       choice=(choice+1)%4;
       goto mnu;
-    }else if(key.UnicodeChar == CHAR_CARRIAGE_RETURN) {
-      exit=choose(choice);
-      if (exit == 1) goto end;
-    }else goto mnu;
+    }else if (keychar == CHAR_CARRIAGE_RETURN ) {
+      break;
+    }else goto mnu;  
   }
-
-  end: return; 
+  return choice; 
 }
 
-void
-print_bit(uint64_t val, int bit) {
-  if (val & ((uint64_t)1 << bit))
-      strOut(tcO, L"1");
-  else
-      strOut(tcO, L"0");
-}
+
 
 void
 print_bits(uint64_t val) {
-  for (int i = 63; i >= 0; i--) {
-      strOut(tcO, (val & (1ull << i)) ? L"1" : L"0");
-  }
+  for (int i = 63; i >= 0; i--)
+    if (val & ((uint64_t)1 << i)) strOut(tcO, L"1");
+    else strOut(tcO, L"0");
+}
+
+void
+table(uint64_t term,CHAR16 *op, uint64_t result){
+  CHAR16 *tblHL   = TBL_HL ;
+  strRow(op,term); 
+  strOut(tcO,L"\r\n");
+  strOut(tcO,tblHL);
+  strRow(L"RESULT: ",result);
 }
 
 void
@@ -250,53 +246,27 @@ strRow(CHAR16 *head,uint64_t data){
 
 void
 set_ProcHot() {
-  uint64_t val = AsmReadMsr64(0x1FC);
-  uint64_t setbitzero = 1;  
+  uint64_t val = read_0x1fc();
+  uint64_t setbitzero = SET_ZERO;  
   uint64_t nval = val | setbitzero;
-  CHAR16 *tblADR  =L"0x1FC:  ";
-  CHAR16 *tblOR   =L"   OR:  ";
-  CHAR16 *tblHL   =L"------------------------------------------------------------------------------";
-  CHAR16 *tblRES  =L"RESULT:  ";
-  strRow(tblADR,val); 
-  strRow(tblOR,setbitzero);
-  strOut(tcO,tblHL);  
-  strRow(tblRES,nval);
-  ConfirmAndWrite(nval,L"\r\nBD_PROCHOT is now Enabled!  ");
+  table(setbitzero,L"    OR: ",nval);
+  ConfirmAndWrite(nval,MSG_ENABLED);
 }
 
 void
 clear_ProcHot(){
-  uint64_t val = AsmReadMsr64(0x1FC);
-  uint64_t clearbitzero =  0xFFFFFFFFFFFFFFFE;
+  uint64_t val = read_0x1fc();
+  uint64_t clearbitzero =  CLEAR_ZERO;
   uint64_t nval = val & clearbitzero;    
-  CHAR16 *tblADR  =L"\r\n 0x1FC:  ";
-  CHAR16 *tblAND  =L"\r\n   AND:  ";
-  CHAR16 *tblHL   =L"\r\n------------------------------------------------------------------------------";
-  CHAR16 *tblRES  =L"\r\nRESULT:  ";
-  strRow(tblADR,val); 
-  strRow(tblAND,clearbitzero);
-  strOut(tcO,tblHL);  
-  strRow(tblRES,nval);
-  ConfirmAndWrite( nval, L"\r\nBD_PROCHOT is now Disabled!  "); 
+  table(clearbitzero,L"   AND: ",nval);
+  ConfirmAndWrite( nval, MSG_DISABLED); 
 }
-
-void 
-read_0x1fc(){
-  uint64_t val = AsmReadMsr64(0x1FC);
-  CHAR16 *tblADR  =L"\r\n 0x1FC:  ";
-  strRow(tblADR,val); 
-}
-
 
 uint64_t
-read_ProcHot(){
+read_0x1fc(){
   uint64_t val = AsmReadMsr64(0x1FC);
-  uint64_t bit = val & 1;
-  if (bit == 1){
-      strOut(tcO, L"BD_PROCHOT: 1"); 
-  }else { 
-      strOut(tcO, L"BD_PROCHOT: 0");
-  }
-  return bit;
+  CHAR16 *tblADR  =L"\r\n 0x1FC: ";
+  strRow(tblADR,val);
+  return val;  
 }
 
