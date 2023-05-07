@@ -29,24 +29,23 @@ EFI_TEXT_OUTPUT_STRING strOut;
 EFI_TEXT_RESET scrClear;
 EFI_INPUT_READ_KEY keyRead;
 EFI_STALL bsSlp;
-
 EFI_WAIT_FOR_EVENT evtWait;
 EFI_EVENT keyWait;
 
-void strHeader();
-uint8_t toMsg(CHAR16*msg, uint64_t to,CHAR16 *prog);
+
+
 void ConfirmAndWrite(uint64_t val,CHAR16 *msg) ; 
 void choose(uint8_t choice);
-
 void menu (uint8_t choice);
-uint8_t menuloop ();
+
 void strRow(CHAR16 *head,uint64_t data);
 void print_bits(uint64_t val);
 void clear_ProcHot();
 void read_ProcHot();
 void set_ProcHot();
+uint8_t menuloop ();
 uint64_t read_0x1fc();
-
+uint8_t toMsg(CHAR16*msg, uint64_t to,CHAR16 *prog);
 uint64_t
 AsmReadMsr64(uint32_t addr) {
   uint32_t low;
@@ -96,11 +95,6 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systemTable) {
     }
   } 
   return EFI_SUCCESS;
-}
-
-void
-strHeader() {
-
 }
 
 uint8_t
@@ -195,7 +189,6 @@ menuloop () {
       strOut(tcO, L"BD_PROCHOT: ");
       strOut(tcO, (AsmReadMsr64(0x1FC) & 1) ? L"1" : L"0" ) ;
 
-
       menu(choice);
 
     sT->BootServices->WaitForEvent(1, &sT->ConIn->WaitForKey, &index);
@@ -217,8 +210,6 @@ menuloop () {
   return choice; 
 }
 
-
-
 void
 table(uint64_t term,CHAR16 *op, uint64_t result){
   CHAR16 *tblHL   = TBL_HL ;
@@ -233,7 +224,7 @@ strRow(CHAR16 *head,uint64_t data){
   strOut(tcO, L"\r\n");
   strOut(tcO, head);
   for (int i = 63; i >= 0; i--) {
-      strOut(tcO, (data & (1ULL << i)) ? L"1" : L"0");
+    strOut(tcO, (data & (1ULL << i)) ? L"1" : L"0");
   }
 }
 
