@@ -8,18 +8,24 @@
 #include <stdlib.h>
 
 #define VERSION "0v402"
-#define HEAD0 L"(c)2023 HoefkensJ            Zero BDProcHot 0v402        github.com/hoefkensj"
-#define HEAD1 L"\r\n-------------------------------------------------------------------------------\r\n"
-#define TBL_HL L"     = ------------------------------------------------------------------"
+#define HEAD0  (CHAR16*)L"(c)2023 HoefkensJ            Zero BDProcHot 0v402        github.com/hoefkensj"
+#define HEAD1  (CHAR16*)L"\r\n-------------------------------------------------------------------------------\r\n"
+#define TBL_HL  (CHAR16*)L"     = ------------------------------------------------------------------"
 
-#define DEF_STALL 100000
-#define MSG_CONFIRM  L"\r\n\r\n\r\nWrite Result to System? (Y/n) "
-#define MSG_INTERACTIVE L"ZeroProcHot : Press Esc for interactive mode "
-#define MSG_ABORT L"\r\nAborted by user!"
-#define MSG_ENABLED L"\r\nBD_PROCHOT is now Enabled!  "
-#define MSG_DISABLED L"\r\nBD_PROCHOT is now Disabled!  "
+
+#define MSG_CONFIRM   (CHAR16*)L"\r\n\r\n\r\nWrite Result to System? (Y/n) "
+#define MSG_INTERACTIVE  (CHAR16*)L"ZeroProcHot : Press Esc for interactive mode "
+#define MSG_ABORT  (CHAR16*)L"\r\nAborted by user!"
+#define MSG_ENABLED  (CHAR16*)L"\r\nBD_PROCHOT is now Enabled!  "
+#define MSG_DISABLED (CHAR16*)L"\r\nBD_PROCHOT is now Disabled!  "
 #define CLEAR_ZERO 0xFFFFFFFFFFFFFFFE
 #define SET_ZERO 1
+#define DEF_STALL 100000
+
+
+
+
+
 
 EFI_SYSTEM_TABLE *sT;
 EFI_BOOT_SERVICES *tbS;

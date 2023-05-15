@@ -6,19 +6,21 @@
 #include <efiapi.h>
 #include <efierr.h>
 #include <stdlib.h>
-
+// #include <Library/BaseLib.h>
+// #include <Library/UefiLib.h>
+// #include <Library/AsciiStrToUnicodeStr.h>
 #define MSR_ADDRESS 0x1FC
 #define VERSION "0v402"
-#define HEAD0 L"(c)2023 HoefkensJ            Zero BDProcHot 0v402        github.com/hoefkensj"
-#define HEAD1 L"\r\n-------------------------------------------------------------------------------\r\n"
-#define TBL_HL L"     = ------------------------------------------------------------------"
+#define HEAD0  (CHAR16*)L"(c)2023 HoefkensJ            Zero BDProcHot 0v402        github.com/hoefkensj"
+#define HEAD1  (CHAR16*)L"\r\n-------------------------------------------------------------------------------\r\n"
+#define TBL_HL  (CHAR16*)L"     = ------------------------------------------------------------------"
 
 #define DEF_STALL 100000
-#define MSG_CONFIRM  L"\r\n\r\n\r\nWrite Result to System? (Y/n) "
-#define MSG_INTERACTIVE L"ZeroProcHot : Press Esc for interactive mode "
-#define MSG_ABORT L"\r\nAborted by user!"
-#define MSG_ENABLED L"\r\nBD_PROCHOT is now Enabled!  "
-#define MSG_DISABLED L"\r\nBD_PROCHOT is now Disabled!  "
+#define MSG_CONFIRM   (CHAR16*)L"\r\n\r\n\r\nWrite Result to System? (Y/n) "
+#define MSG_INTERACTIVE  (CHAR16*)L"ZeroProcHot : Press Esc for interactive mode "
+#define MSG_ABORT  (CHAR16*)L"\r\nAborted by user!"
+#define MSG_ENABLED  (CHAR16*)L"\r\nBD_PROCHOT is now Enabled!  "
+#define MSG_DISABLED  (CHAR16*)L"\r\nBD_PROCHOT is now Disabled!  "
 #define CLEAR_ZERO 0xFFFFFFFFFFFFFFFE
 #define SET_ZERO 1
 
@@ -34,7 +36,7 @@ EFI_WAIT_FOR_EVENT evtWait;
 EFI_EVENT keyWait;
 
 
-
+void print()
 void ConfirmAndWrite(uint64_t val,CHAR16 *msg) ; 
 void choose(uint8_t choice);
 void menu (uint8_t choice);
@@ -222,8 +224,8 @@ table(uint64_t term,CHAR16 *op, uint64_t result){
 
 void
 strRow(CHAR16 *head,uint64_t data){
-  strOut(tcO, L"\r\n");
-  strOut(tcO, head);
+  print(tcO, L"\r\n");
+  print(tcO, head);
   for (int i = 63; i >= 0; i--) {
     strOut(tcO, (data & (1ULL << i)) ? L"1" : L"0");
   }
