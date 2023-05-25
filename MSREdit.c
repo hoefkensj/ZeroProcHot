@@ -3,7 +3,7 @@
 #include <efibind.h>
 #include <efidef.h>
 #include <efidevp.h>
-#include <eficon.h>
+
 #include <efiprot.h>
 #include <efiapi.h>
 #include <efierr.h>
@@ -186,7 +186,7 @@ AsmWriteMsr64(uint32_t addr, uint64_t val) {
 
 
 void
-Charset(){                            // ONCE PER LOOKUP
+Charset(){
 	for (UINT16 i = 0 ; i < 128 ; i ++){
 		CHARSETZERO[i*2] =                               // glob CHAR16 CHARSET[62];
 			(           i <= 9 )*( 48 + i)           // 10      [0  - 9]
