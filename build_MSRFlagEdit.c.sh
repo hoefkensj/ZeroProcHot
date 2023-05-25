@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-NAME="MSRFlagEdit"
+NAME="MSREdit"
 VER="0v401"
 REFINDDRIVERS="$1/EFI/reFind/drivers_x64"
 

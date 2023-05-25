@@ -25,6 +25,7 @@
 #define VERSION          C16"0v503"
 #define STR_INTERACTIVE  C16"MSR EDITOR : Press Esc for interactive mode "
 #define HEAD0            C16"(c)2023 HoefkensJ            MSR EDITOR 0v502        github.com/hoefkensj"
+#define CHAR_SET_SIZE 255
 
 struct MenuItem {
 	CHAR16 *select;
@@ -32,97 +33,188 @@ struct MenuItem {
 	CHAR16 snum;
 	CHAR16 *label;
 };
-
-EFI_SYSTEM_TABLE *sT;
-EFI_BOOT_SERVICES *tbS;
-SIMPLE_TEXT_OUTPUT_INTERFACE *tcO;
-SIMPLE_INPUT_INTERFACE *tcI;
-EFI_TEXT_OUTPUT_STRING PRINT;
-EFI_TEXT_RESET CLEAR;
-EFI_INPUT_READ_KEY READ;
-EFI_STALL SLEEP;
-CHAR16 CHARS[255];
-CHAR16 LINE[78];
 struct MenuItem rMenu[10];
 
+EFI_SYSTEM_TABLE              *EST;
+EFI_BOOT_SERVICES             *tbS;
+SIMPLE_TEXT_OUTPUT_INTERFACE  *tcO;
+SIMPLE_INPUT_INTERFACE        *tcI;
+EFI_TEXT_OUTPUT_STRING         PRINT;
+EFI_TEXT_RESET                 CLEAR;
+EFI_INPUT_READ_KEY             READK;
+EFI_STALL                      SLEEP;
+CHAR16                         CHARSET[256];
+CHAR16                        *pCHRS[128];
+CHAR16                         LINE[78];
 
 
+
+// CHAR16 *cat(char* str1, char* str2);
 uint8_t menu(uint8_t current);
+UINT64 StrToHex(CHAR16 *Input, UINTN Pos, UINTN NumChars);
+// Returns TRUE if replacement was done, FALSE otherwise.
+// BOOLEAN ReplaceSubstring(IN OUT CHAR16 **MainString, IN CHAR16 *SearchString, IN CHAR16 *ReplString);
 
+VOID uCase(CHAR16 * MyString) ;
 
-// CHAR16* format_string(CHAR16* format, ...) {
-//     static CHAR16 output[1024]; // buffer to hold the output string
-//     va_list args; // variable argument list
-//     va_start(args, format); // initialize the argument list
-//
-//     // use vsnprintf to format the string with the variable arguments
-//     int num_chars = vsnprintf(NULL, 0, format, args);
-//     if (num_chars < 0) {
-//         return NULL;
-//     }
-//
-//     char* tmp = malloc((num_chars + 1) * sizeof(char));
-//     if (tmp == NULL) {
-//         return NULL;
-//     }
-//
-//     snprintf(tmp, num_chars + 1, format, args);
-//
-//     va_end(args); // clean up the argument list
-//
-//     // convert the char string to a wide char string
-//     wchar_t* woutput = char_to_wchar(tmp);
-//
-//     // copy the wide char string to the output buffer
-//     wcsncpy(output, woutput, sizeof(output) / sizeof(output[0]) - 1);
-//     output[sizeof(output) / sizeof(output[0]) - 1] = L'\0';
-//
-//     free(tmp);
-//     free(woutput);
-//
-//     return output;
-// }
+// Converts consecutive characters in the input string into a
+// number, interpreting the string as a hexadecimal number, starting
+// at the specified position and continuing for the specified number
+// of characters or until the end of the string, whichever is first.
+// NumChars must be between 1 and 16. Ignores invalid characters.
+UINT64 StrToHex(CHAR16 *Input, UINTN Pos, UINTN NumChars) {
+    UINT64 retval = 0x00;
+    UINTN  NumDone = 0, InputLength;
+    CHAR16 a;
 
+    if ((Input == NULL) || (NumChars == 0) || (NumChars > 16)) {
+        return 0;
+    }
 
-void charset(){
-	CHAR16 czero=L'0';
-	// CHAR16 izero=(CHAR16) czero;
-	for (int i = 0; i <= 10; i++){
-		CHARS[i]= (czero+i);
-	}
-	czero=L'A';
-	// izero=(int)czero;
-	for (int i = 0; i <= 26; i++){
-		CHARS[10+i]=(CHAR16)(czero+i);
-	}
+    InputLength = StrLen(Input);
+    while ((Pos <= InputLength) && (NumDone < NumChars)) {
+        a = Input[Pos];
+        if ((a >= '0') && (a <= '9')) {
+            retval *= 0x10;
+            retval += (a - '0');
+            NumDone++;
+        }
+        if ((a >= 'a') && (a <= 'f')) {
+            retval *= 0x10;
+            retval += (a - 'a' + 0x0a);
+            NumDone++;
+        }
+        if ((a >= 'A') && (a <= 'F')) {
+            retval *= 0x10;
+            retval += (a - 'A' + 0x0a);
+            NumDone++;
+        }
+        Pos++;
+    } // while()
+    return retval;
+} // StrToHex()
+VOID uCase(CHAR16 * MyString) {
+	UINTN i = 0;
+	if (MyString) {
+		while (MyString[i] != L'\0') {
+			if ((MyString[i] >= L'a') && (MyString[i] <= L'z'))
+				MyString[i] = MyString[i] - L'A' + L'a';
+			i++;
+		} // while
+	} // if
 }
+
+// typedef unsigned short CHAR16;
+
+CHAR16 *cat(CHAR16 *str1, char *str2) {
+    // Calculate the lengths of the input strings
+    int len1 = 0;
+		int len2 = 0;
+		CHAR16* result;
+    while (str1[len1] != '\0') {
+        len1++;
+    }
+    while (str2[len2] != '\0') {
+        len2++;
+    }
+
+    // Allocate memory for the concatenated string
+    result = (CHAR16*) malloc((len1 + len2 + 1) * sizeof(CHAR16));
+    if (result == NULL) {
+        return NULL;
+    }
+
+    // Copy the first string into the result buffer
+    for (int i = 0; i < len1; i++) {
+        result[i] = (CHAR16) str1[i];
+    }
+
+    // Append the second string to the result buffer
+    for (int i = 0; i < len2; i++) {
+        result[len1 + i] = (CHAR16) str2[i];
+    }
+    // Add a null terminator to the end of the concatenated string
+    result[len1 + len2] = '\0';
+
+    // Return the concatenated string
+    return result;
+}
+
+
+// Convert input string to all-uppercase.
+// DO NOT USE the standard StrLwr() function, since it's broken on some EFIs!
+
+
+
+
+
+// Function to initialize the character set and return an array of pointers to its elements
+void Charset() {
+  // CHAR16 CHARSET[256];
+	// CHAR16 *pCHRS[128];
+	for (UINT16 i = 0; i < 256 ; i++) {
+		if ((i&&1) == 0){
+			CHARSET[i] = L'0' + i;
+			pCHRS[i/2]= &CHARSET[i];
+		}else{
+			CHARSET[i] = L'\0';
+		}//fi
+	}//rof
+}
+
+
+
+// void charset(){
+// 	char end=L'\0';
+// 	CHAR16 string;
+// 	CHAR16 czero=L'0';
+//
+// 	for (UINT16 i = 0; i < 10; i++){
+// 		string=czero+i;
+// 		CHARSET[i]= *cat(&string,&end);
+// 	}
+// 	czero=L'A';
+// 	for (UINT16 i = 10; i < 36; i++){
+// 		string=czero+(i-10);
+// 		CHARSET[i]= *cat(&string,&end);
+// 	}
+// 	czero=L'a';
+// 	for (UINT16 i = 36; i < 62; i++){
+// 		string=czero+(i-36);
+// 		CHARSET[i]= *cat(&string,&end);
+// 	}
+// 	czero=L'.';
+// 	for (UINT16 i = 62; i <= 255; i++){
+// 		string=L'.';
+// 		CHARSET[i]= *cat(&string,&end);
+// 	}
+// }
 EFI_STATUS
 efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systemTable) {
 	// int num;
 	// CHAR16 linebuffer[80];
 
-  sT    = systemTable;
-  tbS   = sT->BootServices;
-  tcO   = sT->ConOut;
-  tcI   = sT->ConIn;
+	EST   = systemTable;
+	tbS   = EST->BootServices;
+	tcO   = EST->ConOut;
+	tcI   = EST->ConIn;
 	PRINT = tcO->OutputString;
 	CLEAR = tcO->Reset;
-	READ  = tcI->ReadKeyStroke;
+	READK = tcI->ReadKeyStroke;
 	SLEEP = tbS->Stall;
-	charset();
-	for (int i = 0; i <= 2; i++){
-			tcO->OutputString(tcO,CHARS[i]);
+	CHAR16 *pCHRS;
+	Charset();
+
+	for (UINT16 i = 0; i < 128; i++){
+		tcO->OutputString(tcO,pCHRS[i]);
+		// SLEEP(100000);
 	}
-
-	// C16 &linebuffer);
-
-	SLEEP(1000000);
-	menu(2);
-	SLEEP(100000000);
-;	return EFI_SUCCESS;
+	return EFI_SUCCESS;
 }
 
 uint8_t  menu(uint8_t current) {
+	// menuitems:
+	CHAR16 *item=L"Exit";
 	for (int i = 0; i <= 10; i++){
 		if (i == current ){
 			rMenu[i].select=L" >";
@@ -130,7 +222,7 @@ uint8_t  menu(uint8_t current) {
 			rMenu[i].select=L"  ";
 		}
 		rMenu[i].inum=i;
-		rMenu[i].snum= CHARS[i];
+		rMenu[i].snum= CHARSET[i];
 	}
 	rMenu[0].label=C16 L". Exit";
 	rMenu[1].label=C16 L". Change Adress";

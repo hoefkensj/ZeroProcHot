@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-NAME="ZeroProcHot"
+NAME=$1
 VER="0v401"
-REFINDDRIVERS="$1/EFI/reFind/drivers_x64"
+REFINDDRIVERS="$2/EFI/reFind/drivers_x64"
 
 
 LIBGCC="/usr/lib/gcc/x86_64-pc-linux-gnu/11.3.0/libgcc.a"
@@ -64,6 +64,6 @@ objcopy  "${OBJCPYPARAMS[@]}" "build/${NAME}.c.$VER.so" "build/bin/${NAME}_${VER
 
 ls -l "build/bin/${NAME}_${VER}_x64.efi"
 md5sum "build/bin/${NAME}_${VER}_x64.efi"
-sudo cp -v "build/bin/${NAME}_${VER}_x64.efi" "${REFINDDRIVERS}/${NAME}_x64.efi"
+sudo cp -v "$PWD/build/bin/${NAME}_${VER}_x64.efi" "${REFINDDRIVERS}/${NAME}_x64.efi"
 
 
